@@ -34,8 +34,8 @@ To use follow these general instructions:
 >```tar xvzf prometheus-2.10.0.linux-amd64.tar.gz```  
   
 
-2. Determine what port to use for the CAS Exporter (default is 2114).  Edit the *prometheus.yml* file and add this port as a target ('localhost:2114' for example)
->```cd prometheus-2.10.0.linux-amd64```
+2. Determine what port to use for the CAS Exporter (default is 2114).  Edit the *prometheus.yml* file and edit the *static_configs:* line to add this port as a target ('localhost:2114' for example)
+>```cd prometheus-2.10.0.linux-amd64```  
 >```vi prometheus.yml```  
   
 >> static_configs:
