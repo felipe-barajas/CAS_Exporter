@@ -32,9 +32,10 @@ To use follow these general instructions:
 >```wget https://github.com/prometheus/prometheus/releases/download/v2.10.0/prometheus-2.10.0.linux-amd64.tar.gz```  
 
 >```tar xvzf prometheus-2.10.0.linux-amd64.tar.gz```  
->```cd prometheus-2.10.0.linux-amd64```  
+  
 
 2. Determine what port to use for the CAS Exporter (default is 2114).  Edit the *prometheus.yml* file and add this port as a target ('localhost:2114' for example)
+>```cd prometheus-2.10.0.linux-amd64```
 >```vi prometheus.yml```  
   
 >> static_configs:
@@ -44,7 +45,7 @@ To use follow these general instructions:
 >``` ./prometheus & ```  
 
 4. If you do not have the Go environment get it with:  
-> ```https://golang.org/dl/```  
+> ```wget https://dl.google.com/go/go1.13.3.linux-amd64.tar.gz```  
 > ```tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz```  
 > ```export PATH=$PATH:/usr/local/go/bin```  
 
@@ -65,7 +66,9 @@ To use follow these general instructions:
 8. Run CAS Exporter using the port defined above (2114), getting CAS stats for cache instance *1*, logging data to /tmp/spdk_parser.out and sleeping 1 sec between metric recordings
 > ``` ./cas_exporter -port=2114 -cache=1 -log -logfile="/tmp/spdk_parser.out" -sleep=1 ```  
 
-9. On the Grafana server setup the newly created Prometheus source. The default port for the Prometheus server is 9090. For example:  
+
+9,  If you do not have Grafana installed, follow the instructions available here: https://grafana.com/docs/installation/rpm/
+Once Grafana is installed, launch a web browser and log into the Grafana server to setup the newly created Prometheus source. The default port for the Prometheus server is 9090. For example:  
 ![alt text](spdk_parser_datasource_image.jpg "Example")
 
 10. On the Grafana server create a dashboard and add a panel. The panel needs to point to the Prometheus data source created in the step above.  The metric query to use is one defined by CAS Exporter. See the next section for all the options.  For example, to see the instantaneous rate of the Reads from the CAS, use a metric query as shown in the picture below  
