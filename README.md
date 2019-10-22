@@ -68,7 +68,9 @@ To use follow these general instructions:
 
 
 9. If you do not have Grafana installed, follow the instructions available here: https://grafana.com/docs/installation/rpm/
-Once Grafana is installed, launch a web browser and log into the Grafana server to setup the newly created Prometheus source. The default port for the Prometheus server is 9090. For example:  
+If you are unfamiliar with Grafana, follow the basic instructions to get started here: https://grafana.com/docs/guides/getting_started/
+
+Once Grafana is installed, launch a web browser (the default Grafana web service URL is http://localhost:3000) and log into the Grafana server to setup the newly created Prometheus source. The default port for the Prometheus server is 9090. For example:  
 ![alt text](spdk_parser_datasource_image.jpg "Example")
 
 10. On the Grafana server create a dashboard and add a panel. The panel needs to point to the Prometheus data source created in the step above.  The metric query to use is one defined by CAS Exporter. See the next section for all the options.  For example, to see the instantaneous rate of the Reads from the CAS, use a metric query as shown in the picture below  
