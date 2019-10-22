@@ -46,7 +46,7 @@ To use follow these general instructions:
 
 4. If you do not have the Go environment get it with:  
 > ```wget https://dl.google.com/go/go1.13.3.linux-amd64.tar.gz```  
-> ```tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz```  
+> ```tar -C /usr/local -xzf go1.13.3.linux-amd64.tar.gz```  
 > ```export PATH=$PATH:/usr/local/go/bin```  
 
 5. Install the Prometheus API for Go  
