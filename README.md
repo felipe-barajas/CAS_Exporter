@@ -67,7 +67,7 @@ To use follow these general instructions:
 > ``` ./cas_exporter -port=2114 -cache=1 -log -logfile="/tmp/spdk_parser.out" -sleep=1 ```  
 
 
-9,  If you do not have Grafana installed, follow the instructions available here: https://grafana.com/docs/installation/rpm/
+9. If you do not have Grafana installed, follow the instructions available here: https://grafana.com/docs/installation/rpm/
 Once Grafana is installed, launch a web browser and log into the Grafana server to setup the newly created Prometheus source. The default port for the Prometheus server is 9090. For example:  
 ![alt text](spdk_parser_datasource_image.jpg "Example")
 
