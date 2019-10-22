@@ -37,64 +37,6 @@ var (
   cache string
 )
 
-type OCF_data struct {
-  Count  float64
-  Percentage string
-  Units string
-}
-
-type OCF_usage struct {
-  Occupancy OCF_data
-  Free OCF_data
-  Clean OCF_data
-  Dirty OCF_data
-}
-
-type OCF_requests struct {
-  Rd_hits OCF_data
-  Rd_partial_misses OCF_data
-  Rd_full_misses OCF_data
-  Rd_total OCF_data
-  Wr_hits OCF_data
-  Wr_partial_misses OCF_data
-  Wr_full_misses OCF_data
-  Wr_total OCF_data
-  Rd_pt OCF_data
-  Wr_pt OCF_data
-  Serviced OCF_data
-  Total OCF_data
-}
-
-type OCF_blocks struct {
-  Core_volume_rd OCF_data
-  Core_volume_wr OCF_data
-  Core_volume_total OCF_data
-  Cache_volume_rd OCF_data
-  Cache_volume_wr OCF_data
-  Cache_volume_total OCF_data
-  Volume_rd OCF_data
-  Volume_wr OCF_data
-  Volume_total OCF_data
-}
-
-type OCF_errors struct {
-  Core_volume_rd OCF_data
-  Core_volume_wr OCF_data
-  Core_volume_total OCF_data
-  Cache_volume_rd OCF_data
-  Cache_volume_wr OCF_data
-  Cache_volume_total OCF_data
-  Total OCF_data
-}
-
-type OCFStat struct {
-  Usage OCF_usage
-  Requests OCF_requests
-  Blocks OCF_blocks
-  Errors OCF_errors
-}
-
-
 // Definitions of header keywords.
 // These are the keywords the function intializeHeaders will initialize to use internally for mapping
 var (
@@ -104,7 +46,7 @@ var (
   free_pct              = "free_pct"
   clean_blk             = "clean_blk"
   clean_pct             = "clean_pct"
-  diry_blk              = "diry_blk"
+  dirty_blk             = "diry_blk"
   dirty_pct             = "dirty_pct"
   rd_hit_blk            = "rd_hit_blk"
   rd_hit_pct            = "rd_hit_pct"
@@ -209,7 +151,7 @@ func initializeHeaders(){
   headers[free_pct             ] = "Free [%]"
   headers[clean_blk            ] = "Clean [4KiB blocks]"
   headers[clean_pct            ] = "Clean [%]"
-  headers[diry_blk             ] = "Dirty [4KiB blocks]"
+  headers[dirty_blk            ] = "Dirty [4KiB blocks]"
   headers[dirty_pct            ] = "Dirty [%]"
   headers[rd_hit_blk           ] = "Read hits [Requests]"
   headers[rd_hit_pct           ] = "Read hits [%]"
@@ -289,19 +231,14 @@ func mapHeaders(headerline string) int{
     all_keys = append(all_keys, h)
   }
 
-  //fmt.Println("DEBUG: headerline [" + headerline + "]")
-
   csv_headers := strings.Split(headerline, ",")
 
   for _, key := range all_keys {
     header_keyword := headers[key]
-    // fmt.Println("DEBUG: header_keyword [" + header_keyword + "]")
     for i:= 0; i<len(csv_headers); i++ {
       csv_header := csv_headers[i]
-    //  fmt.Println("DEBUG: csv_header [" + csv_header + "]")
       if strings.Contains(csv_header, header_keyword) {
-         headerMap[header_keyword] = i
-         //fmt.Println("DEBUG: header_keyword [" + header_keyword +"] was found in position [" + strconv.Itoa(i) + "]")
+         headerMap[key] = i
          found = true
          break
       }
@@ -339,7 +276,7 @@ func check(e error) {
 //# Description:  This function will record all the metrics and expose them to
 //#               Prometheus.  It will execute 'casadm' command to get stats
 //##############################################################################
-func recordMetrics_19_9() {
+func recordMetrics() {
   go func() {
     for {
       out, err := exec.Command("bash", "-c", "casadm -P -i " + cache + " -o csv").Output()
@@ -364,189 +301,84 @@ func recordMetrics_19_9() {
 
       parsed_ocf_data := strings.Split(ocf_csv_data, ",")
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[occupancy_blk]]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":         "occupancy"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[18]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":              "free"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[20]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":             "clean"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[22]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":             "dirty"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[occupancy_blk]]         ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":         "occupancy"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[free_blk]]              ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":              "free"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[clean_blk]]             ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":             "clean"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[dirty_blk]]             ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":             "dirty"}).Set(s)}
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[24]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":           "rd_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[26]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory": "rd_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[28]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":    "rd_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[30]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "rd_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[32]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":           "wr_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[34]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory": "wr_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[36]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":    "wr_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[38]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "wr_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[31]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "rd_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[39]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "wr_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[44]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "serviced"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[46]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_hit_blk]]            ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":           "rd_hits"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_part_misses_blk]]    ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory": "rd_partial_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_full_misses_blk]]    ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":    "rd_full_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_total_blk]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "rd_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_hit_blk]]            ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":           "wr_hits"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_part_misses_blk]]    ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory": "wr_partial_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_full_misses_blk]]    ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":    "wr_full_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_total_blk]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "wr_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_total_pct]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "rd_pt"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_total_pct]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "wr_pt"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[serviced_blk]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "serviced"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_request_blk]]     ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "total"}).Set(s)}
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[48]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":    "core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[50]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":    "core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[52]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory": "core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[54]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":   "cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[56]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":   "cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[58]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[60]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":         "volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[62]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":         "volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[64]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":      "volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_core_blk]]           ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":    "core_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_core_blk]]           ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":    "core_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_core_blk]]        ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory": "core_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_cache_blk]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":   "cache_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_cache_blk]]          ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":   "cache_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_cache_blk]]       ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_cas_blk]]            ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":         "volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_cas_blk]]            ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":         "volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_cas_blk]]         ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":      "volume_total"}).Set(s)}
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[66]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":   "cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[68]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":   "cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[70]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[72]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":    "core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[74]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":    "core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[76]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory": "core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[78]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":             "total"}).Set(s)}
-
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[17]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"occupancy"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[19]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"free"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[21]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"clean"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[23]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"dirty"}).Set(s)}
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[25]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[27]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[29]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[31]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[33]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[35]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[37]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[39]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[31]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[39]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[45]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"serviced"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[47]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"total"}).Set(s)}
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[49]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[51]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[53]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[55]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[57]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[59]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[61]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[63]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[65]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_total"}).Set(s)}
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[67]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[69]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[71]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[73]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[75]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[77]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[79]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"total"}).Set(s)}
-
-      time.Sleep(time.Duration(sleepTime) * time.Second)
-    }
-  }()
-}
-
-func recordMetrics_19_3() {
-  go func() {
-    for {
-      out, err := exec.Command("bash", "-c", "casadm -P -i " + cache + " -o csv").Output()
-      if (err) != nil {
-        time.Sleep(time.Duration(sleepTime) * time.Second)
-        continue
-      }
-
-      //remove the header which is the first line
-      output := string([]byte(out))
-      outArray := strings.Split(output, "\n")
-
-      if len(outArray) < 2 {
-        xprint("ERROR : data returned did not contain enough lines. OUTPUT:" + fmt.Sprint(string(output)) )
-        time.Sleep(time.Duration(sleepTime) * time.Second)
-        continue
-      }
-
-      //outArray := output.index('\n')
-      headerless := outArray[2:]
-      ocf_csv_data := strings.Join(headerless, "\n")
-
-      //ocf_csv_data := string([]byte(output))
-      xprint("CAS DATA:\n" + fmt.Sprint(string(ocf_csv_data)))
-
-      parsed_ocf_data := strings.Split(ocf_csv_data, ",")
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[15]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":         "occupancy"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[17]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":              "free"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[19]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":             "clean"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[21]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"usage",    "subcategory":             "dirty"}).Set(s)}
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[23]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":           "rd_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[25]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory": "rd_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[27]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":    "rd_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[29]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "rd_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[31]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":           "wr_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[33]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory": "wr_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[35]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":    "wr_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[37]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "wr_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[30]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "rd_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[38]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "wr_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[43]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":          "serviced"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[45]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"requests", "subcategory":             "total"}).Set(s)}
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[47]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":    "core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[49]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":    "core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[51]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory": "core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[53]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":   "cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[55]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":   "cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[57]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[59]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":         "volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[61]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":         "volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[63]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"blocks",   "subcategory":      "volume_total"}).Set(s)}
-
-      if s,err := strconv.ParseFloat(parsed_ocf_data[65]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":   "cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[67]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":   "cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[69]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[71]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":    "core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[73]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":    "core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[75]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory": "core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[77]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":             "total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[cache_rd_error_blk]]    ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":   "cache_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[cache_wt_error_blk]]    ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":   "cache_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[cache_total_error_blk]] ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[core_rd_error_blk]]     ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":    "core_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[core_wt_error_blk]]     ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":    "core_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[core_total_error_blk]]  ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory": "core_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_error_blk]]       ,64); err == nil { OCFStat_count.With(prometheus.Labels{"category":"errors",   "subcategory":             "total"}).Set(s)}
 
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[16]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"occupancy"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[18]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"free"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[20]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"clean"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[22]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"dirty"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[occupancy_pct]]          ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"occupancy"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[free_pct]]               ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"free"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[clean_pct]]              ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"clean"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[dirty_pct]]              ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"usage",    "subcategory":"dirty"}).Set(s)}
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[24]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[26]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[28]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[30]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[32]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_hits"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[34]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_partial_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[36]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_full_misses"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[38]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[30]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[38]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_pt"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[44]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"serviced"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[46]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_hit_pct]]             ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_hits"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_part_misses_pct]]     ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_partial_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_full_misses_pct]]     ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_full_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_total_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_hit_pct]]             ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_hits"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_part_misses_pct]]     ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_partial_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_full_misses_pct]]     ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_full_misses"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_total_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_total_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"rd_pt"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_total_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"wr_pt"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[serviced_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"serviced"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_request_pct]]      ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"requests", "subcategory":"total"}).Set(s)}
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[48]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[50]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[52]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[54]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[56]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[58]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[60]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[62]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[64]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_core_pct]]            ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_core_pct]]            ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_core_pct]]         ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"core_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_cache_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_cache_pct]]           ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_cache_pct]]        ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"cache_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[rd_cas_pct]]             ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[wt_cas_pct]]             ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_cas_pct]]          ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"blocks",   "subcategory":"volume_total"}).Set(s)}
 
-      if s,err := strconv.ParseFloat(parsed_ocf_data[66]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[68]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[70]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[72]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_rd"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[74]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_wr"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[76]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_total"}).Set(s)}
-      if s,err := strconv.ParseFloat(parsed_ocf_data[78]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[cache_rd_error_pct]]     ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[cache_wt_error_pct]]     ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[cache_total_error_pct]]  ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"cache_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[core_rd_error_pct]]      ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_rd"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[core_wt_error_pct]]      ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_wr"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[core_total_error_pct]]   ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"core_volume_total"}).Set(s)}
+      if s,err := strconv.ParseFloat(parsed_ocf_data[headerMap[total_error_pct]]        ,64); err == nil { OCFStat_percentage.With(prometheus.Labels{"category":"errors",   "subcategory":"total"}).Set(s)}
 
       time.Sleep(time.Duration(sleepTime) * time.Second)
     }
   }()
 }
+
 
 //##############################################################################
 //# Function: init()
@@ -663,10 +495,11 @@ func main() {
   initializeHeaders()
   rc := mapHeaders(headerline)
   if rc != 0 {
-    xprint("ERROR : Failed to map header" )
+    xprint("ERROR : Failed to find the right headers in the casadm -P -i command" )
+    os.Exit(2)
   }
 
- recordMetrics_19_9()
+ recordMetrics()
 
  http.Handle("/metrics", promhttp.Handler())
  log.Fatal(http.ListenAndServe(port, nil))
