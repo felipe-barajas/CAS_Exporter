@@ -21,9 +21,9 @@ typeset IS_CAS_AVAIL=1
 typeset NUM_CAS_DEVS=1
 typeset IS_GRAFANA_SERVER=0
 typeset IS_UPDATING_DASHBOARD=1
-typeset LOG='/home/felipe/cas_exporter_installer.log'
+typeset LOG='cas_exporter_installer.log'
 
-typeset STATUS_FILE='/home/felipe/cas_exporter_installer.status'
+typeset STATUS_FILE='cas_exporter_installer.status'
 typeset CAS_EXPORTER_LOG='/tmp/cas_exporter.log'
 typeset CAS_EXPORTER_LOG_ARG=''
 typeset STARTING_PORT=2114
@@ -99,7 +99,7 @@ function install_prometheus() {
 }
 
 function install_go() {
-  if [[ ! -e "${BASE_DIR}/https://dl.google.com/go/go1.13.5.linux-amd64.tar.gz" ]]; then
+  if [[ ! -e "${BASE_DIR}/go1.13.5.linux-amd64.tar.gz" ]]; then
     run_cmd "wget https://dl.google.com/go/go1.13.5.linux-amd64.tar.gz"
     run_cmd "tar -C /usr/local/ -xzf  go1.13.5.linux-amd64.tar.gz"
     run_cmd "export PATH=$PATH:/usr/local/go/bin"
@@ -110,15 +110,15 @@ function install_go() {
 }
 
 function install_cas_exporter() {
-  if [[ ! -d "${BASE_DIR}/CAS_Exporter" ]]; then
+  if [[ ! -e "${BASE_DIR}/cas_exporter.go" ]]; then
     run_cmd "cd ${BASE_DIR}"
     run_cmd "git clone https://github.com/felipe-barajas/CAS_Exporter"
     run_cmd "cd CAS_Exporter"
-    run_cmd "export PATH=\$PATH:/usr/local/go/bin"
-    run_cmd "go build cas_exporter.go"
-    run_cmd "cp cas_exporter /usr/local/bin"
-    run_cmd "chown cas_exporter:cas_exporter /usr/local/bin/cas_exporter"
   fi
+  run_cmd "export PATH=\$PATH:/usr/local/go/bin"
+  run_cmd "go build cas_exporter.go"
+  run_cmd "cp cas_exporter /usr/local/bin"
+  run_cmd "chown cas_exporter:cas_exporter /usr/local/bin/cas_exporter"
 }
 
 function install_grafana_ubuntu() {
@@ -241,6 +241,10 @@ function configure_prometheus_yml() {
   typeset yml_file=$1
   typeset port=$2
   typeset existing_ports=''
+  typeset interval=''
+
+  typeset scrape_interval='1s'
+  typeset evaluation_interval='10s'
 
   if [[ ! -e ${yml_file} ]]; then
     echo "ERROR - Unable to find the prometheus file ${yml_file}"
@@ -250,6 +254,16 @@ function configure_prometheus_yml() {
   existing_ports=$(cat ${yml_file} | grep 'targets: \[' | cut -f 2 -d '[' | tr ']' ' ')
   if [[ -z $(echo ${existing_ports} | grep ${port}) ]]; then
     run_cmd "perl -p -i -e \"s/targets: \[.*\$/targets: \[${existing_ports},\'${port}\'\]/\" ${yml_file}"
+  fi
+
+  interval=$(cat ${yml_file} | grep 'scrape_interval' | cut -f 2 -d ':' )
+  if [[ -z $(echo ${interval} | grep ${scrape_interval}) ]]; then
+    run_cmd "perl -p -i -e \"s/scrape_interval: .*\$/scrape_interval: ${scrape_interval}/\" ${yml_file}"
+  fi
+
+  interval=$(cat ${yml_file} | grep 'evaluation_interval' | cut -f 2 -d ':' )
+  if [[ -z $(echo ${interval} | grep ${evaluation_interval}) ]]; then
+    run_cmd "perl -p -i -e \"s/evaluation_interval: .*\$/evaluation_interval: ${evaluation_interval}/\" ${yml_file}"
   fi
 }
 
@@ -342,8 +356,8 @@ function install_all() {
   write_progress "Setting up new user"
   add_cas_user
 
-  #write_progress "Installing Golang"
-  #install_go
+  write_progress "Installing Golang"
+  install_go
 
   write_progress "Installing Prometheus"
   install_prometheus
@@ -367,8 +381,8 @@ function install_all() {
 
   if [[ ${IS_UPDATING_DASHBOARD} -eq 1 ]]; then
     write_progress "Creating Grafana Dashboard"
-    run_cmd "cp -f ${BASE_DIR}/CAS_Exporter/sample_dashboard.json ${BASE_DIR}/CAS_Exporter/dashboard.json"
-    configure_grafana_json "${BASE_DIR}/CAS_Exporter/dashboard.json" \
+    run_cmd "cp -f sample_dashboard.json dashboard.json"
+    configure_grafana_json "dashboard.json" \
       "MyDataSource" \
       "nvme0n1|sda|sdb|sdc|sdd|sde|sdf|sdg|sdh|sdi|sdj|sdk|sdl" \
       "cas1-1|cas1-2|cas1-3|cas1-4|cas1-5|cas1-6|cas1-7|cas1-8|cas1-9|cas1-10|cas1-11|cas1-12" \
