@@ -35,6 +35,7 @@ var (
   isLogEnabled bool
   logPath string
   cache string
+  isBasePort bool
 )
 
 // Definitions of header keywords.
@@ -237,13 +238,15 @@ func mapHeaders(headerline string) int{
     header_keyword := headers[key]
     for i:= 0; i<len(csv_headers); i++ {
       csv_header := csv_headers[i]
-      if strings.Contains(csv_header, header_keyword) {
+      if strings.EqualFold(csv_header, header_keyword) {
          headerMap[key] = i
          found = true
+         xprint("MSG: Found the header [" + header_keyword + "] in position [" + strconv.Itoa(i) + "] ")
          break
       }
     }
     if (found == false){
+      xprint("WARNING: did not find the header [" + header_keyword + "] in the csv output")
       fmt.Println("WARNING: did not find the header [" + header_keyword + "] in the csv output")
       return 1
     }
@@ -455,6 +458,7 @@ func main() {
   logPtr := flag.Bool("log", false, "Turns on logging information")
   logPathPtr := flag.String("logfile", "/tmp/cas_exporter.out", "log file location")
   cachePtr := flag.String("cache", "1", "Cache Instance Number")
+  basePortPtr := flag.Bool("baseport", false, "The port will be Cache Instance Number + Port Number")
 
   flag.Parse()
 
@@ -463,6 +467,7 @@ func main() {
   isLogEnabled = *logPtr
   logPath = *logPathPtr
   cache = *cachePtr
+  isBasePort = *basePortPtr
 
   port := ":" + strconv.Itoa(portNumber)
 
@@ -472,6 +477,7 @@ func main() {
   xprint("isLogEnabled  :" + strconv.FormatBool(isLogEnabled))
   xprint("Log Path      :" + logPath)
   xprint("Cache Instance:" + cache)
+  xprint("Base Port     :" + strconv.FormatBool(isBasePort))
   xprint("Other Args    :" + fmt.Sprintln(flag.Args()))
 
   // Test that RPC is working fail if not
@@ -500,6 +506,15 @@ func main() {
   }
 
  recordMetrics()
+
+ if isBasePort {
+   newPort, err := strconv.Atoi(cache)
+   if err == nil {
+     newPort = newPort + portNumber
+     port = ":" + strconv.Itoa(newPort)
+     xprint("Updated Port to    :" + port)
+   }
+ }
 
  http.Handle("/metrics", promhttp.Handler())
  log.Fatal(http.ListenAndServe(port, nil))
